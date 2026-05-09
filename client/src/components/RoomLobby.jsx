@@ -4,7 +4,8 @@ export default function RoomLobby({ room, socket, onGameStart }) {
   const [copied, setCopied] = useState(false);
   const [notifications, setNotifications] = useState([]);
 
-  const isCreator = room && socket && room.creatorId === socket.id;
+  const currentPlayer = room?.players?.find(p => p.id === socket?.id);
+  const isCreator = currentPlayer && room?.creator === currentPlayer.name;
   const playerCount = room?.players?.length || 0;
   const canStart = isCreator && playerCount >= 2;
 
@@ -83,7 +84,7 @@ export default function RoomLobby({ room, socket, onGameStart }) {
               />
               <span className={`player-status-dot ${player.connected !== false ? 'connected' : 'disconnected'}`} />
               <span className="player-name">{player.name}</span>
-              {player.id === room.creatorId && (
+              {player.name === room.creator && (
                 <span className="player-creator-badge">Host</span>
               )}
               {player.id === socket?.id && (
