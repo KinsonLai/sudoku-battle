@@ -6,7 +6,7 @@ const MODES = [
   { value: 'coop', label: 'Cooperative Mode' },
 ];
 
-export default function Lobby({ socket, onEnterRoom }) {
+export default function Lobby({ socket, onEnterRoom, connected }) {
   const [tab, setTab] = useState('create');
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -21,6 +21,10 @@ export default function Lobby({ socket, onEnterRoom }) {
   const validName = name.trim().length >= 1 && name.trim().length <= 20;
 
   const handleCreateRoom = useCallback(async () => {
+    if (!socket || !socket.connected) {
+      setError('Not connected to server. Please wait...');
+      return;
+    }
     if (!validName) return;
     setCreating(true);
     setError('');
@@ -49,6 +53,10 @@ export default function Lobby({ socket, onEnterRoom }) {
   }, [name, mode, difficulty, validName, socket, onEnterRoom]);
 
   const handleJoinRoom = useCallback(async () => {
+    if (!socket || !socket.connected) {
+      setError('Not connected to server. Please wait...');
+      return;
+    }
     if (!validName || !validRoomId) return;
     setJoining(true);
     setError('');
@@ -77,10 +85,12 @@ export default function Lobby({ socket, onEnterRoom }) {
   }, [name, roomId, validName, validRoomId, socket, onEnterRoom]);
 
   const fetchRooms = useCallback(() => {
+    if (!socket) return;
     socket.emit('fetch_rooms');
   }, [socket]);
 
   useEffect(() => {
+    if (!socket) return;
     const onRoomsList = (data) => {
       setAvailableRooms(data || []);
     };
@@ -118,6 +128,13 @@ export default function Lobby({ socket, onEnterRoom }) {
         </div>
 
         {error && <div className="error-banner">{error}</div>}
+
+        {!connected && (
+          <div className="connection-banner lobby-connecting">
+            Connecting to game server...
+            <div className="spinner" />
+          </div>
+        )}
 
         <div className="tab-content">
           <div className="form-group">
@@ -167,7 +184,7 @@ export default function Lobby({ socket, onEnterRoom }) {
 
               <button
                 className="btn btn-primary btn-full"
-                disabled={!validName || creating}
+                disabled={!validName || !connected || creating}
                 onClick={handleCreateRoom}
               >
                 {creating ? 'Creating...' : 'Create Room'}
@@ -192,7 +209,7 @@ export default function Lobby({ socket, onEnterRoom }) {
 
               <button
                 className="btn btn-primary btn-full"
-                disabled={!validName || !validRoomId || joining}
+                disabled={!validName || !validRoomId || !connected || joining}
                 onClick={handleJoinRoom}
               >
                 {joining ? 'Joining...' : 'Join Room'}

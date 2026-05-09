@@ -103,7 +103,7 @@ export default function App() {
 
       <main className="app-main">
         {screen === 'lobby' && (
-          <Lobby socket={socket} onEnterRoom={handleEnterRoom} />
+          <Lobby socket={socket} connected={connected} onEnterRoom={handleEnterRoom} />
         )}
         {screen === 'room' && room && (
           <RoomLobby
