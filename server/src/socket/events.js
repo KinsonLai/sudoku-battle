@@ -364,6 +364,26 @@ function setupSocketHandlers(io, roomManager) {
       }
     });
 
+    socket.on('start_singleplayer', ({ difficulty } = {}) => {
+      try {
+        if (!difficulty) {
+          socket.emit('singleplayer_error', { message: 'Difficulty is required' });
+          return;
+        }
+
+        const { puzzle, solution } = generatePuzzle(difficulty);
+
+        socket.emit('singleplayer_started', {
+          puzzle,
+          solution,
+          startTime: Date.now(),
+          difficulty,
+        });
+      } catch (err) {
+        socket.emit('singleplayer_error', { message: err.message || 'Failed to start singleplayer game' });
+      }
+    });
+
     socket.on('sync_request', () => {
       try {
         const room = roomManager.getPlayerRoom(socket.id);

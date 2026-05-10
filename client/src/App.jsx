@@ -7,6 +7,10 @@ import RoomLobby from './components/RoomLobby';
 import GameBoard from './components/GameBoard';
 import Results from './components/Results';
 import ThemeToggle from './components/ThemeToggle';
+import SinglePlayerGame from './components/SinglePlayerGame';
+import Scoreboard from './components/Scoreboard';
+import { checkAchievements } from './utils/achievements';
+import useScoreboard from './hooks/useScoreboard';
 import './App.css';
 
 export default function App() {
@@ -17,6 +21,9 @@ export default function App() {
 
   const [screen, setScreen] = useState('lobby');
   const [playerName, setPlayerName] = useState('');
+  const [spDifficulty, setSpDifficulty] = useState('medium');
+  const [spTimer, setSpTimer] = useState(null);
+  const [newAchievements, setNewAchievements] = useState([]);
 
   const { socket, connected } = useSocket();
   const {
@@ -30,6 +37,8 @@ export default function App() {
     makeMove,
     resetGame,
   } = useGame(socket);
+
+  const { stats, allRecords, addRecord } = useScoreboard();
 
   const { formattedTime, elapsed } = useTimer(gameStarted);
 
@@ -88,8 +97,34 @@ export default function App() {
     setScreen('lobby');
   }, [socket, resetGame]);
 
+  const handleStartSingleplayer = useCallback((name, difficulty, timerSeconds) => {
+    setPlayerName(name);
+    setSpDifficulty(difficulty);
+    setSpTimer(timerSeconds);
+    setScreen('singleplayer');
+  }, []);
+
+  const handleSingleplayerComplete = useCallback((record) => {
+    addRecord(record);
+    const newAch = checkAchievements(
+      { ...stats, totalCompleted: stats.totalCompleted + (record.completed ? 1 : 0), totalGames: stats.totalGames + 1 },
+      [record, ...allRecords]
+    );
+    setNewAchievements(newAch);
+    setScreen('lobby');
+  }, [addRecord, stats, allRecords]);
+
+  const handleOpenScoreboard = useCallback(() => setScreen('scoreboard'), []);
+
   const connectionBanner = !connected ? (
     <div className="connection-banner">Connecting to server...</div>
+  ) : null;
+
+  const achievementsPopup = newAchievements.length > 0 ? (
+    <Achievements
+      newAchievements={newAchievements}
+      onDismiss={() => setNewAchievements([])}
+    />
   ) : null;
 
   const playerId = socket?.id || '';
@@ -97,13 +132,33 @@ export default function App() {
   return (
     <div className="app">
       {connectionBanner}
+      {achievementsPopup}
       <header className="app-header">
         <ThemeToggle theme={theme} onToggle={handleToggleTheme} />
       </header>
 
       <main className="app-main">
         {screen === 'lobby' && (
-          <Lobby socket={socket} connected={connected} onEnterRoom={handleEnterRoom} />
+          <Lobby
+            socket={socket}
+            connected={connected}
+            onEnterRoom={handleEnterRoom}
+            onStartSingleplayer={handleStartSingleplayer}
+            onOpenScoreboard={handleOpenScoreboard}
+          />
+        )}
+        {screen === 'singleplayer' && (
+          <SinglePlayerGame
+            socket={socket}
+            playerName={playerName}
+            difficulty={spDifficulty}
+            countdownSeconds={spTimer}
+            onComplete={handleSingleplayerComplete}
+            onBack={() => setScreen('lobby')}
+          />
+        )}
+        {screen === 'scoreboard' && (
+          <Scoreboard onBack={() => setScreen('lobby')} />
         )}
         {screen === 'room' && room && (
           <RoomLobby

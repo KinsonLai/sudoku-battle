@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuizMaster Pro</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header id="app-header">
+      <h1 class="logo">QuizMaster <span class="accent">Pro</span></h1>
+      <nav id="tab-nav" class="hidden">
+        <button class="tab-btn active" data-tab="scoreboard-screen">Scoreboard</button>
+        <button class="tab-btn" data-tab="achievements-screen">Achievements</button>
+      </nav>
+      <button id="btn-home" class="icon-btn hidden" title="Home">&#8962;</button>
+    </header>
+
+    <main id="main-content">
+      <section id="home-screen" class="screen active">
+        <div class="hero">
+          <div class="hero-icon">&#9733;</div>
+          <h2>Welcome to QuizMaster Pro</h2>
+          <p>Challenge yourself with questions across multiple categories and difficulties. Track your progress, earn achievements, and climb the leaderboard.</p>
+        </div>
+        <div class="hero-actions">
+          <button id="btn-start-quiz" class="btn btn-primary btn-lg">Start Quiz</button>
+          <button id="btn-view-scoreboard" class="btn btn-secondary btn-lg">Scoreboard</button>
+          <button id="btn-view-achievements" class="btn btn-secondary btn-lg">Achievements</button>
+        </div>
+      </section>
+
+      <section id="setup-screen" class="screen">
+        <h2>Quiz Setup</h2>
+        <div class="setup-form">
+          <div class="form-group">
+            <label for="category-select">Category</label>
+            <select id="category-select" class="form-control">
+              <option value="all">All Categories</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="difficulty-select">Difficulty</label>
+            <select id="difficulty-select" class="form-control">
+              <option value="all">All Difficulties</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="count-slider">Questions: <span id="count-display">10</span></label>
+            <input type="range" id="count-slider" class="slider" min="5" max="20" value="10" step="1">
+            <div class="slider-labels">
+              <span>5</span>
+              <span>20</span>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button id="btn-begin-quiz" class="btn btn-primary btn-lg">Begin Quiz</button>
+            <button id="btn-back-home" class="btn btn-secondary">Back</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="quiz-screen" class="screen">
+        <div class="quiz-top-bar">
+          <div class="quiz-progress">
+            <span id="question-indicator">Question 1 / 10</span>
+            <span id="category-badge" class="badge"></span>
+            <span id="difficulty-badge" class="badge"></span>
+          </div>
+          <div class="quiz-stats">
+            <div id="quiz-score" class="stat-box">
+              <span class="stat-label">Score</span>
+              <span class="stat-value" id="score-value">0</span>
+            </div>
+            <div id="quiz-streak" class="stat-box">
+              <span class="stat-label">Streak</span>
+              <span class="stat-value" id="streak-value">&#128293; 0</span>
+            </div>
+            <div id="quiz-time" class="stat-box">
+              <span class="stat-label">Time</span>
+              <span class="stat-value" id="time-value">15</span>
+            </div>
+          </div>
+        </div>
+        <div id="timer-bar-container">
+          <div id="timer-bar"></div>
+        </div>
+        <div id="question-container" class="question-card">
+          <h3 id="question-text"></h3>
+        </div>
+        <div id="options-container" class="options-grid">
+          <button class="option-btn" data-index="0"></button>
+          <button class="option-btn" data-index="1"></button>
+          <button class="option-btn" data-index="2"></button>
+          <button class="option-btn" data-index="3"></button>
+        </div>
+      </section>
+
+      <section id="results-screen" class="screen">
+        <h2 class="results-title">Quiz Complete!</h2>
+        <div class="results-summary">
+          <div class="result-card highlight">
+            <span class="result-label">Final Score</span>
+            <span class="result-value" id="result-score">0</span>
+          </div>
+          <div class="result-card">
+            <span class="result-label">Accuracy</span>
+            <span class="result-value" id="result-accuracy">0%</span>
+          </div>
+          <div class="result-card">
+            <span class="result-label">Best Streak</span>
+            <span class="result-value" id="result-streak">0</span>
+          </div>
+          <div class="result-card">
+            <span class="result-label">Total Time</span>
+            <span class="result-value" id="result-time">0s</span>
+          </div>
+        </div>
+        <div class="results-breakdown">
+          <h3>Question Breakdown</h3>
+          <div id="breakdown-list"></div>
+        </div>
+        <div class="results-actions">
+          <button id="btn-save-result" class="btn btn-primary btn-lg">Save to Scoreboard</button>
+          <button id="btn-play-again" class="btn btn-secondary btn-lg">Play Again</button>
+          <button id="btn-home-from-results" class="btn btn-secondary">Home</button>
+        </div>
+      </section>
+
+      <section id="scoreboard-screen" class="screen">
+        <h2>Scoreboard</h2>
+        <div class="scoreboard-controls">
+          <input type="text" id="score-search" class="form-control" placeholder="Search...">
+          <select id="sort-select" class="form-control">
+            <option value="date-desc">Date (Newest)</option>
+            <option value="date-asc">Date (Oldest)</option>
+            <option value="score-desc">Score (Highest)</option>
+            <option value="score-asc">Score (Lowest)</option>
+            <option value="accuracy-desc">Accuracy (Highest)</option>
+            <option value="accuracy-asc">Accuracy (Lowest)</option>
+          </select>
+          <button id="btn-clear-all" class="btn btn-danger">Clear All</button>
+          <div class="export-group">
+            <button id="btn-export-csv" class="btn btn-secondary btn-sm">Export CSV</button>
+            <button id="btn-export-json" class="btn btn-secondary btn-sm">Export JSON</button>
+          </div>
+        </div>
+        <div class="stats-summary" id="score-stats"></div>
+        <div class="charts-row">
+          <canvas id="progress-chart" width="300" height="200"></canvas>
+          <canvas id="trend-chart" width="300" height="200"></canvas>
+        </div>
+        <div class="table-container">
+          <table id="records-table">
+            <thead>
+              <tr>
+                <th data-sort="date">Date</th>
+                <th data-sort="category">Category</th>
+                <th data-sort="difficulty">Difficulty</th>
+                <th data-sort="score">Score</th>
+                <th data-sort="accuracy">Accuracy</th>
+                <th data-sort="time">Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="records-tbody"></tbody>
+          </table>
+        </div>
+        <div id="no-records" class="empty-state">No records yet. Complete a quiz and save your result!</div>
+      </section>
+
+      <section id="achievements-screen" class="screen">
+        <h2>Achievements</h2>
+        <div class="category-chart-container">
+          <canvas id="category-chart" width="250" height="250"></canvas>
+        </div>
+        <div id="achievements-grid" class="achievements-grid"></div>
+      </section>
+    </main>
+  </div>
+
+  <div id="confirm-modal" class="modal hidden">
+    <div class="modal-overlay"></div>
+    <div class="modal-card">
+      <h3 id="modal-title">Confirm</h3>
+      <p id="modal-message">Are you sure?</p>
+      <div class="modal-actions">
+        <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="modal-confirm" class="btn btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="questions.js"></script>
+  <script type="module" src="quiz-engine.js"></script>
+  <script type="module" src="scoreboard.js"></script>
+  <script type="module" src="achievements.js"></script>
+  <script type="module" src="charts.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

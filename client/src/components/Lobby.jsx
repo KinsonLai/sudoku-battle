@@ -6,7 +6,7 @@ const MODES = [
   { value: 'coop', label: 'Cooperative Mode' },
 ];
 
-export default function Lobby({ socket, onEnterRoom, connected }) {
+export default function Lobby({ socket, onEnterRoom, connected, onStartSingleplayer, onOpenScoreboard }) {
   const [tab, setTab] = useState('create');
   const [name, setName] = useState('');
   const [roomId, setRoomId] = useState('');
@@ -16,6 +16,8 @@ export default function Lobby({ socket, onEnterRoom, connected }) {
   const [creating, setCreating] = useState(false);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [error, setError] = useState('');
+  const [spDifficulty, setSpDifficulty] = useState('medium');
+  const [spTimerMode, setSpTimerMode] = useState('none');
 
   const validRoomId = roomId.trim().length >= 3 && roomId.trim().length <= 10;
   const validName = name.trim().length >= 1 && name.trim().length <= 20;
@@ -111,6 +113,53 @@ export default function Lobby({ socket, onEnterRoom, connected }) {
       <div className="lobby-card">
         <h1 className="lobby-title">Sudoku Battle</h1>
         <p className="lobby-subtitle">Challenge friends or solve together</p>
+
+        <div className="sp-lobby-section">
+          <h3 className="sp-lobby-heading">Singleplayer</h3>
+          <div className="sp-lobby-options">
+            <div className="form-group">
+              <label className="form-label">Difficulty</label>
+              <div className="difficulty-selector">
+                {DIFFICULTIES.map((d) => (
+                  <button
+                    key={d}
+                    className={`difficulty-button ${spDifficulty === d ? 'active' : ''}`}
+                    onClick={() => setSpDifficulty(d)}
+                  >
+                    {d.charAt(0).toUpperCase() + d.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Timer Mode</label>
+              <div className="timer-mode-selector">
+                <button className={`timer-mode-btn ${spTimerMode === 'none' ? 'active' : ''}`} onClick={() => setSpTimerMode('none')}>No Timer</button>
+                <button className={`timer-mode-btn ${spTimerMode === '3min' ? 'active' : ''}`} onClick={() => setSpTimerMode('3min')}>3:00</button>
+                <button className={`timer-mode-btn ${spTimerMode === '5min' ? 'active' : ''}`} onClick={() => setSpTimerMode('5min')}>5:00</button>
+                <button className={`timer-mode-btn ${spTimerMode === '10min' ? 'active' : ''}`} onClick={() => setSpTimerMode('10min')}>10:00</button>
+              </div>
+            </div>
+            <button
+              className="btn btn-primary btn-full sp-start-btn"
+              disabled={!validName || !connected}
+              onClick={() => {
+                const timerMap = { '3min': 180, '5min': 300, '10min': 600 };
+                onStartSingleplayer(name.trim(), spDifficulty, timerMap[spTimerMode] || null);
+              }}
+            >
+              {!connected ? 'Connecting...' : 'Start Singleplayer Game'}
+            </button>
+          </div>
+        </div>
+
+        <button className="btn btn-secondary btn-full scoreboard-btn" onClick={onOpenScoreboard}>
+          🏆 Scoreboard
+        </button>
+
+        <div className="lobby-divider">
+          <span>Multiplayer</span>
+        </div>
 
         <div className="tab-bar">
           <button

@@ -1,9 +1,11 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 
-export default function useTimer(gameStarted) {
-  const [elapsed, setElapsed] = useState(0);
+export default function useTimer(gameStarted, countdownSeconds, onExpire) {
+  const [elapsed, setElapsed] = useState(countdownSeconds || 0);
+  const [isExpired, setIsExpired] = useState(false);
   const intervalRef = useRef(null);
   const startOffsetRef = useRef(null);
+  const isCountdown = typeof countdownSeconds === 'number' && countdownSeconds > 0;
 
   const clearTimer = useCallback(() => {
     if (intervalRef.current) {
@@ -12,27 +14,49 @@ export default function useTimer(gameStarted) {
     }
   }, []);
 
+  const tick = useCallback(() => {
+    if (isCountdown) {
+      setElapsed((prev) => {
+        const next = Math.max(0, Math.ceil((startOffsetRef.current + countdownSeconds * 1000 - Date.now()) / 1000));
+        if (next <= 0) {
+          clearTimer();
+          setIsExpired(true);
+          onExpire?.();
+          return 0;
+        }
+        return next;
+      });
+    } else {
+      setElapsed(Math.floor((Date.now() - startOffsetRef.current) / 1000));
+    }
+  }, [isCountdown, countdownSeconds, onExpire, clearTimer]);
+
   const start = useCallback(
     (offset = 0) => {
       clearTimer();
-      startOffsetRef.current = Date.now() - offset * 1000;
-      intervalRef.current = setInterval(() => {
-        setElapsed(Math.floor((Date.now() - startOffsetRef.current) / 1000));
-      }, 200);
+      setIsExpired(false);
+      if (isCountdown) {
+        startOffsetRef.current = Date.now() - offset * 1000;
+        setElapsed(countdownSeconds - offset);
+      } else {
+        startOffsetRef.current = Date.now() - offset * 1000;
+        setElapsed(offset);
+      }
+      intervalRef.current = setInterval(tick, 200);
     },
-    [clearTimer]
+    [clearTimer, isCountdown, countdownSeconds, tick]
   );
 
   const stop = useCallback(() => {
     clearTimer();
-    setElapsed((prev) => prev);
   }, [clearTimer]);
 
   const reset = useCallback(() => {
     clearTimer();
-    setElapsed(0);
+    setElapsed(isCountdown ? countdownSeconds : 0);
+    setIsExpired(false);
     startOffsetRef.current = null;
-  }, [clearTimer]);
+  }, [clearTimer, isCountdown, countdownSeconds]);
 
   useEffect(() => {
     if (gameStarted) {
@@ -49,5 +73,5 @@ export default function useTimer(gameStarted) {
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   })();
 
-  return { elapsed, formattedTime, start, stop, reset };
+  return { elapsed, formattedTime, start, stop, reset, isExpired };
 }
