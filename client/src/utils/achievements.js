@@ -17,12 +17,13 @@ export const ACHIEVEMENTS = [
   { id: 'centurion', name: 'Centurion', description: 'Score 500+ points in a single game', icon: '👑', check: (stats, records) => records.some(r => r.score >= 500) },
   { id: 'all_around', name: 'All-Around', description: 'Complete a puzzle on every difficulty', icon: '🌟', check: (stats, records) => {
     const diffs = new Set(records.filter(r => r.completed).map(r => r.difficulty));
-    return diffs.has('easy') && diffs.has('medium') && diffs.has('hard') && diffs.has('expert');
+    return diffs.has('easy') && diffs.has('medium') && diffs.has('hard') && diffs.has('expert') && diffs.has('hell_no');
   }},
   { id: 'no_mistakes', name: 'Flawless', description: 'Complete a hard or expert puzzle with zero mistakes', icon: '💎', check: (stats, records) => records.some(r => r.completed && r.mistakes === 0 && (r.difficulty === 'hard' || r.difficulty === 'expert')) },
   { id: 'hundred_games', name: 'Veteran', description: 'Play 50 games', icon: '🎖️', check: (stats) => stats.totalGames >= 50 },
   { id: 'under_pressure', name: 'Under Pressure', description: 'Complete a puzzle with a countdown timer', icon: '⏰', check: (stats, records) => records.some(r => r.completed && r.timeSeconds > 0 && r.mode === 'singleplayer_timed') },
   { id: 'dedication', name: 'Dedication', description: 'Play 25 games', icon: '📅', check: (stats) => stats.totalGames >= 25 },
+  { id: 'brain_drain', name: 'Brain Drain', description: 'Use 5 or more hints in a single game', icon: '🧠', check: (stats, records) => records.some(r => (r.hintsUsed || 0) >= 5) },
 ];
 
 export function checkAchievements(stats, records) {

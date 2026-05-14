@@ -34,7 +34,7 @@ export default function useGame(socket) {
     };
 
     const onMoveResult = (data) => {
-      const { row, col, valid, value } = data;
+      const { row, col, valid, value, erased } = data;
       setMyBoard((prev) => {
         if (!prev) return prev;
         const updated = prev.map((r) => [...r]);

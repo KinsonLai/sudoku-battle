@@ -9,6 +9,7 @@ import Results from './components/Results';
 import ThemeToggle from './components/ThemeToggle';
 import SinglePlayerGame from './components/SinglePlayerGame';
 import Scoreboard from './components/Scoreboard';
+import Achievements from './components/Achievements';
 import { checkAchievements } from './utils/achievements';
 import useScoreboard from './hooks/useScoreboard';
 import './App.css';

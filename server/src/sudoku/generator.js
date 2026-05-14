@@ -81,15 +81,50 @@ function countSolutions(grid, limit = 2) {
 
 function generatePuzzle(difficulty = 'medium') {
   const solution = generateCompleteSolution();
-  const puzzle = solution.map(row => [...row]);
+
   const cellsToRemove = {
     easy: 38,
     medium: 47,
     hard: 54,
     expert: 60,
+    hell_no: 65,
+    hellno: 65,
   };
 
-  const toRemove = cellsToRemove[difficulty] || 47;
+  let toRemove = cellsToRemove[difficulty] || 47;
+
+  if (toRemove === 65) {
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const puzzle = solution.map(row => [...row]);
+      const positions = shuffleArray(
+        Array.from({ length: 81 }, (_, i) => i)
+      );
+
+      let removed = 0;
+      for (const pos of positions) {
+        if (removed >= toRemove) break;
+        const row = Math.floor(pos / 9);
+        const col = pos % 9;
+        const backup = puzzle[row][col];
+        puzzle[row][col] = 0;
+
+        const testGrid = puzzle.map(r => [...r]);
+        if (countSolutions(testGrid) === 1) {
+          removed++;
+        } else {
+          puzzle[row][col] = backup;
+        }
+      }
+
+      if (removed >= toRemove) {
+        return { puzzle, solution };
+      }
+    }
+
+    toRemove = 60;
+  }
+
+  const puzzle = solution.map(row => [...row]);
   const positions = shuffleArray(
     Array.from({ length: 81 }, (_, i) => i)
   );
@@ -137,9 +172,28 @@ function isCellCorrect(board, solution, row, col) {
   return board[row][col] === solution[row][col];
 }
 
+function getHintCell(board, solution) {
+  const emptyCells = [];
+  for (let r = 0; r < 9; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c] === 0) {
+        emptyCells.push({ row: r, col: c, value: solution[r][c] });
+      }
+    }
+  }
+  if (emptyCells.length === 0) return null;
+  return emptyCells[Math.floor(Math.random() * emptyCells.length)];
+}
+
+function isCellEmpty(board, row, col) {
+  return board[row][col] === 0;
+}
+
 module.exports = {
   generatePuzzle,
   validateMove,
   isBoardComplete,
   isCellCorrect,
+  getHintCell,
+  isCellEmpty,
 };

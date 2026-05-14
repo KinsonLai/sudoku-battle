@@ -3,35 +3,37 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const EMPTY = 0;
 
 export default function SinglePlayerGame({ socket, playerName, difficulty, countdownSeconds, onComplete, onBack }) {
-  // Puzzle and solution from server
   const [puzzle, setPuzzle] = useState(null);
   const [solution, setSolution] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
-  // Board state: each cell { value: number, filledBy: 'given' | 'player' | null }
   const [board, setBoard] = useState(null);
 
-  // Selection
   const [selRow, setSelRow] = useState(null);
   const [selCol, setSelCol] = useState(null);
   const [cellFlash, setCellFlash] = useState({});
 
-  // Game state
   const [score, setScore] = useState(0);
   const [correctMoves, setCorrectMoves] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [totalMoves, setTotalMoves] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [expired, setExpired] = useState(false);
+  const [hintsUsed, setHintsUsed] = useState(0);
 
-  // Timer
   const [elapsed, setElapsed] = useState(0);
   const startTimeRef = useRef(null);
   const timerRef = useRef(null);
   const gameActiveRef = useRef(false);
 
-  // Request puzzle from server
+  const [sketchMode, setSketchMode] = useState(false);
+  const [sketchMarks, setSketchMarks] = useState({});
+  const [credits, setCredits] = useState(3);
+  const [lockedWrongCell, setLockedWrongCell] = useState(null);
+  const [scoreFloats, setScoreFloats] = useState([]);
+  const floatIdRef = useRef(0);
+
   useEffect(() => {
     if (!socket) {
       setLoadError('Not connected to server');
@@ -71,7 +73,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     };
   }, [socket, difficulty]);
 
-  // Countdown timer logic (runs alongside elapsed)
   const [countdownRemaining, setCountdownRemaining] = useState(countdownSeconds || 0);
   useEffect(() => {
     if (!countdownSeconds || loading || completed || expired) return;
@@ -87,7 +88,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     return () => clearInterval(interval);
   }, [countdownSeconds, loading, completed, expired]);
 
-  // Countdown expiry
   useEffect(() => {
     if (countdownRemaining === 0 && countdownSeconds && !completed && !expired && !loading) {
       setExpired(true);
@@ -96,14 +96,12 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     }
   }, [countdownRemaining, countdownSeconds, completed, expired, loading]);
 
-  // Cleanup timer on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  // Check completion
   useEffect(() => {
     if (!board || !solution || !puzzle || completed) return;
     let allCorrect = true;
@@ -123,7 +121,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     }
   }, [board, solution, puzzle, completed]);
 
-  // Fire onComplete when game ends
   const firedRef = useRef(false);
   useEffect(() => {
     if (firedRef.current) return;
@@ -144,11 +141,11 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
       totalMoves: finalMoves,
       completed: completed && !expired,
       mode: countdownSeconds ? 'singleplayer_timed' : 'singleplayer',
+      hintsUsed,
     };
     onComplete?.(record);
   }, [completed, expired]);
 
-  // Helpers
   const isGiven = (row, col) => puzzle?.[row]?.[col] !== EMPTY;
   const isSelected = (row, col) => selRow === row && selCol === col;
   const isEmpty = (row, col) => {
@@ -173,28 +170,69 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
 
   const handleCellClick = (row, col) => {
     if (completed || expired) return;
+    if (lockedWrongCell) {
+      if (row !== lockedWrongCell.row || col !== lockedWrongCell.col) return;
+    }
     setSelRow((prev) => prev === row && selCol === col ? null : row);
     setSelCol((prev) => prev === row && selCol === col ? null : col);
   };
 
   const handleNumber = useCallback((num) => {
-    if (selRow === null || selCol === null || completed || expired) return;
-    if (isGiven(selRow, selCol)) return;
+    if (completed || expired) return;
 
     const value = num === 'erase' ? EMPTY : num;
 
-    // Erase current cell value
+    if (lockedWrongCell && value !== EMPTY) return;
+
+    let targetRow = selRow;
+    let targetCol = selCol;
+
+    if (value === EMPTY && lockedWrongCell) {
+      targetRow = lockedWrongCell.row;
+      targetCol = lockedWrongCell.col;
+      setSelRow(targetRow);
+      setSelCol(targetCol);
+    }
+
+    if (targetRow === null || targetCol === null) return;
+    if (isGiven(targetRow, targetCol)) return;
+
+    const key = `${targetRow}-${targetCol}`;
+
     if (value === EMPTY) {
       setBoard((prev) => {
         const next = prev.map((r) => [...r]);
-        next[selRow][selCol] = { value: EMPTY, filledBy: null };
+        next[targetRow][targetCol] = { value: EMPTY, filledBy: null };
         return next;
+      });
+      setSketchMarks((prev) => {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      setLockedWrongCell(null);
+      return;
+    }
+
+    if (sketchMode) {
+      setSketchMarks((prev) => {
+        const current = prev[key] || [];
+        if (current.includes(value)) {
+          const filtered = current.filter((n) => n !== value);
+          if (filtered.length === 0) {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          }
+          return { ...prev, [key]: filtered };
+        }
+        return { ...prev, [key]: [...current, value].sort((a, b) => a - b) };
       });
       return;
     }
 
-    // Check against solution
-    const correct = solution[selRow][selCol] === value;
+    const correct = solution[targetRow][targetCol] === value;
     setTotalMoves((p) => p + 1);
 
     if (correct) {
@@ -202,27 +240,98 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
       setCorrectMoves((p) => p + 1);
       setBoard((prev) => {
         const next = prev.map((r) => [...r]);
-        next[selRow][selCol] = { value, filledBy: 'player' };
+        next[targetRow][targetCol] = { value, filledBy: 'player' };
         return next;
       });
-      setCellFlash((prev) => ({ ...prev, [`${selRow}-${selCol}`]: 'correct' }));
+      setSketchMarks((prev) => {
+        if (!prev[key]) return prev;
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+      const fid = ++floatIdRef.current;
+      setScoreFloats((prev) => [...prev, { id: fid, row: targetRow, col: targetCol }]);
+      setTimeout(() => setScoreFloats((prev) => prev.filter((f) => f.id !== fid)), 800);
+      setCellFlash((prev) => ({ ...prev, [key]: 'correct' }));
+      setTimeout(() => setCellFlash((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }), 400);
     } else {
       setMistakes((p) => p + 1);
-      setCellFlash((prev) => ({ ...prev, [`${selRow}-${selCol}`]: 'invalid' }));
-    }
-    setTimeout(() => {
-      setCellFlash((prev) => {
-        const next = { ...prev };
-        delete next[`${selRow}-${selCol}`];
+      setBoard((prev) => {
+        const next = prev.map((r) => [...r]);
+        next[targetRow][targetCol] = { value, filledBy: 'player' };
         return next;
       });
-    }, 400);
-  }, [selRow, selCol, completed, expired, solution]);
+      setLockedWrongCell({ row: targetRow, col: targetCol });
+      setSelRow(targetRow);
+      setSelCol(targetCol);
+      setCellFlash((prev) => ({ ...prev, [key]: 'invalid' }));
+      setTimeout(() => setCellFlash((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      }), 400);
+    }
+  }, [selRow, selCol, completed, expired, solution, lockedWrongCell, sketchMode]);
 
-  // Keyboard
+  const handleHint = useCallback(() => {
+    if (completed || !board || !solution) return;
+
+    const emptyCells = [];
+    for (let r = 0; r < 9; r++) {
+      for (let c = 0; c < 9; c++) {
+        if (board[r][c].value === EMPTY) {
+          emptyCells.push({ row: r, col: c });
+        }
+      }
+    }
+
+    if (emptyCells.length === 0) return;
+
+    const randomIndex = Math.floor(Math.random() * emptyCells.length);
+    const { row, col } = emptyCells[randomIndex];
+    const key = `${row}-${col}`;
+
+    setBoard((prev) => {
+      const next = prev.map((r) => [...r]);
+      next[row][col] = { value: solution[row][col], filledBy: 'player' };
+      return next;
+    });
+
+    setSketchMarks((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+
+    setCredits((p) => p - 1);
+
+    setCellFlash((prev) => ({ ...prev, [key]: 'hint' }));
+    setTimeout(() => setCellFlash((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    }), 3000);
+  }, [completed, board, solution]);
+
   useEffect(() => {
     const handleKey = (e) => {
       if (completed || expired) return;
+
+      if (lockedWrongCell) {
+        if (e.key === 'Backspace' || e.key === 'Delete' || e.key === '0') {
+          e.preventDefault();
+          handleNumber('erase');
+          return;
+        }
+        e.preventDefault();
+        return;
+      }
+
       if (selRow === null || selCol === null) {
         if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
           setSelRow(0); setSelCol(0); return;
@@ -238,9 +347,8 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [selRow, selCol, handleNumber, completed, expired]);
+  }, [selRow, selCol, handleNumber, completed, expired, lockedWrongCell]);
 
-  // Number counts
   const numberCounts = {};
   for (let n = 1; n <= 9; n++) {
     let c = 0;
@@ -252,7 +360,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     numberCounts[n] = 9 - c;
   }
 
-  // Format time
   const ftime = (s) => {
     const m = Math.floor(s / 60), sec = s % 60;
     return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
@@ -260,7 +367,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
   const displayTime = countdownSeconds ? countdownRemaining : elapsed;
   const timeWarning = countdownSeconds && countdownRemaining <= 30;
 
-  // Cell class
   const getCellClass = (r, c) => {
     const cl = ['cell'];
     if (isGiven(r, c)) cl.push('cell-given');
@@ -272,12 +378,13 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     if (r === 8) cl.push('cell-row-divider-bottom');
     if (c === 8) cl.push('cell-col-divider-right');
     const k = `${r}-${c}`;
-    if (cellFlash[k] === 'correct') cl.push('flash-correct');
-    if (cellFlash[k] === 'invalid') cl.push('flash-invalid');
+    if (cellFlash[k] === 'correct') { cl.push('flash-correct'); cl.push('cell-pop'); }
+    if (cellFlash[k] === 'invalid') { cl.push('flash-invalid'); cl.push('cell-shake'); }
+    if (cellFlash[k] === 'hint') cl.push('cell-hint-glow');
+    if (lockedWrongCell && lockedWrongCell.row === r && lockedWrongCell.col === c) cl.push('cell-locked-wrong');
     return cl.join(' ');
   };
 
-  // Loading
   if (loading) {
     return (
       <div className="sp-game-container">
@@ -286,7 +393,6 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     );
   }
 
-  // Error
   if (loadError) {
     return (
       <div className="sp-game-container">
@@ -298,7 +404,7 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
     );
   }
 
-  const difficultyLabel = difficulty.charAt(0).toUpperCase() + difficulty.slice(1);
+  const difficultyLabel = difficulty.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
   const accuracy = totalMoves > 0 ? Math.round((correctMoves / totalMoves) * 100) : 0;
 
   return (
@@ -306,8 +412,13 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
       <div className="sp-header">
         <button className="btn btn-secondary sp-back-btn" onClick={onBack}>← Back</button>
         <h2 className="sp-title">Singleplayer — {difficultyLabel}</h2>
-        <div className={`sp-timer ${timeWarning ? 'sp-timer-warning' : ''}`}>
-          {countdownSeconds ? '⏱ ' : '🕐 '}{ftime(displayTime)}
+        <div className="sp-header-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div className={`credits-display ${credits < 0 ? 'negative' : ''}`}>
+            🪙 Credits: {credits}
+          </div>
+          <div className={`sp-timer ${timeWarning ? 'sp-timer-warning' : ''}`}>
+            {countdownSeconds ? '⏱ ' : '🕐 '}{ftime(displayTime)}
+          </div>
         </div>
       </div>
 
@@ -328,9 +439,26 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
           Array.from({ length: 9 }).map((__, c) => {
             const cell = board?.[r]?.[c];
             const val = cell?.value;
+            const key = `${r}-${c}`;
+            const marks = sketchMarks[key];
+            const hasFloatingScore = scoreFloats.some((f) => f.row === r && f.col === c);
+
             return (
-              <div key={`${r}-${c}`} className={getCellClass(r, c)} onClick={() => handleCellClick(r, c)}>
-                <span className="cell-value">{val !== EMPTY ? val : ''}</span>
+              <div key={key} className={getCellClass(r, c)} onClick={() => handleCellClick(r, c)}>
+                {marks && marks.length > 0 && val === EMPTY ? (
+                  <div className="cell-sketch-marks">
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                      <span key={n} className="cell-sketch-mark">
+                        {marks.includes(n) ? n : ''}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="cell-value">{val !== EMPTY ? val : ''}</span>
+                )}
+                {hasFloatingScore && (
+                  <span className="score-float positive">+10</span>
+                )}
               </div>
             );
           })
@@ -338,23 +466,53 @@ export default function SinglePlayerGame({ socket, playerName, difficulty, count
       </div>
 
       <div className="number-pad">
+        <div className="number-pad-toolbar">
+          <button
+            className={`sketch-toggle ${sketchMode ? 'active' : ''}`}
+            onClick={() => setSketchMode((p) => !p)}
+          >
+            ✏️ Sketch
+          </button>
+          <button
+            className="btn-hint"
+            onClick={handleHint}
+            disabled={completed || expired}
+          >
+            💡 Hint ({credits})
+          </button>
+          <button
+            className="btn-tool btn-tool-erase"
+            onClick={() => handleNumber('erase')}
+            disabled={completed || expired}
+          >
+            🧹 Erase
+          </button>
+        </div>
+
+        {lockedWrongCell && (
+          <div style={{
+            color: 'var(--accent-coral)',
+            textAlign: 'center',
+            fontWeight: 600,
+            fontSize: '0.85rem',
+            padding: '4px 0 8px',
+          }}>
+            ⚠️ Clear the red cell first!
+          </div>
+        )}
+
         <div className="number-pad-row">
           {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
             <button
               key={n}
-              className={`num-button ${numberCounts[n] <= 0 ? 'num-depleted' : ''}`}
+              className={`num-button ${!sketchMode && numberCounts[n] <= 0 ? 'num-depleted' : ''}`}
               onClick={() => handleNumber(n)}
-              disabled={numberCounts[n] <= 0 || completed || expired}
+              disabled={completed || expired || !!lockedWrongCell || (!sketchMode && numberCounts[n] <= 0)}
             >
               <span className="num-value">{n}</span>
               <span className="num-count">{numberCounts[n]}</span>
             </button>
           ))}
-        </div>
-        <div className="number-pad-row">
-          <button className="num-button num-erase" onClick={() => handleNumber('erase')} disabled={completed || expired}>
-            <span className="num-value">Erase</span>
-          </button>
         </div>
       </div>
     </div>

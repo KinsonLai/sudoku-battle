@@ -40,6 +40,9 @@ class RoomManager {
       mistakes: 0,
       completedAt: null,
       board: null,
+      credits: 0,
+      coopCorrectMoves: 0,
+      coopMistakes: 0,
     };
 
     room.players.push(player);
@@ -113,6 +116,9 @@ class RoomManager {
       p.mistakes = 0;
       p.completedAt = null;
       p.board = null;
+      p.credits = 0;
+      p.coopCorrectMoves = 0;
+      p.coopMistakes = 0;
     });
     room.lastActivity = Date.now();
   }

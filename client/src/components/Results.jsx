@@ -4,6 +4,7 @@ export default function Results({ result, playerName, mode, onRematch, onLeave }
   const [rematching, setRematching] = useState(false);
 
   const isBattle = mode === 'battle';
+  const isCoop = mode === 'coop';
   const winner = result?.winner;
   const isWinner = winner === playerName || (winner && result?.players?.find((p) => p.name === winner && p.name === playerName));
 
@@ -88,6 +89,9 @@ export default function Results({ result, playerName, mode, onRematch, onLeave }
                 <th>Score</th>
                 <th>Cells</th>
                 <th>Mistakes</th>
+                {isCoop && <th>Hints Used</th>}
+                {isCoop && <th>Correct</th>}
+                {isCoop && <th>Mistakes</th>}
               </tr>
             </thead>
             <tbody>
@@ -101,6 +105,9 @@ export default function Results({ result, playerName, mode, onRematch, onLeave }
                   <td>{p.score || 0}</td>
                   <td>{p.cellsCompleted || 0}</td>
                   <td>{p.mistakes || 0}</td>
+                  {isCoop && <td>{p.hintsUsed || 0}</td>}
+                  {isCoop && <td>{p.coopCorrectMoves ?? p.correctMoves ?? 0}</td>}
+                  {isCoop && <td>{p.coopMistakes ?? p.mistakes ?? 0}</td>}
                 </tr>
               ))}
             </tbody>

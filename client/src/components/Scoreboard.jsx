@@ -19,12 +19,17 @@ function formatTime(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
-const DIFFICULTIES = ['all', 'easy', 'medium', 'hard', 'expert'];
+function formatDifficulty(d) {
+  return d.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
+const DIFFICULTIES = ['all', 'easy', 'medium', 'hard', 'expert', 'hell_no'];
 const DIFFICULTY_COLORS = {
   easy: { bg: '#e8f5e9', text: '#2e7d32', border: '#a5d6a7' },
   medium: { bg: '#e3f2fd', text: '#1565c0', border: '#90caf9' },
   hard: { bg: '#fff3e0', text: '#e65100', border: '#ffcc80' },
   expert: { bg: '#ffebee', text: '#c62828', border: '#ef9a9a' },
+  hell_no: { bg: '#f3e5f5', text: '#7b1fa2', border: '#ce93d8' },
 };
 
 const DARK_DIFFICULTY_COLORS = {
@@ -32,6 +37,7 @@ const DARK_DIFFICULTY_COLORS = {
   medium: { bg: '#1a2a3f', text: '#5a9bd5', border: '#2a4a6a' },
   hard: { bg: '#3e2710', text: '#ffa726', border: '#6d4c00' },
   expert: { bg: '#3e1515', text: '#ef5350', border: '#6d2020' },
+  hell_no: { bg: '#2a1535', text: '#ce93d8', border: '#4a2060' },
 };
 
 const SORT_OPTIONS = [
@@ -93,7 +99,7 @@ export default function Scoreboard({ onBack }) {
 
   const difficultyOptions = DIFFICULTIES.map((d) => ({
     value: d,
-    label: d.charAt(0).toUpperCase() + d.slice(1),
+    label: d === 'all' ? 'All' : formatDifficulty(d),
   }));
 
   const chartData = [...trendData];
@@ -202,7 +208,7 @@ export default function Scoreboard({ onBack }) {
                             '--diff-border-dark': DARK_DIFFICULTY_COLORS[record.difficulty]?.border,
                           }}
                         >
-                          {record.difficulty}
+                          {formatDifficulty(record.difficulty)}
                         </span>
                         <span className="badge badge-record-mode">
                           {record.mode === 'timed' ? 'Timed' : 'Singleplayer'}
@@ -324,7 +330,7 @@ export default function Scoreboard({ onBack }) {
                                 '--diff-border-dark': DARK_DIFFICULTY_COLORS[diff]?.border,
                               }}
                             >
-                              {diff.charAt(0).toUpperCase() + diff.slice(1)}
+                              {formatDifficulty(diff)}
                             </span>
                           </td>
                           <td>{pb ? pb.gamesPlayed : '--'}</td>

@@ -3,6 +3,8 @@ const {
   validateMove,
   isBoardComplete,
   isCellCorrect,
+  getHintCell,
+  isCellEmpty,
 } = require('../sudoku/generator');
 
 const RECONNECT_WINDOW = 60000;
@@ -25,6 +27,9 @@ function getRoomState(room) {
     cellsCompleted: p.cellsCompleted,
     mistakes: p.mistakes,
     completedAt: p.completedAt,
+    credits: p.credits !== undefined ? p.credits : 0,
+    coopCorrectMoves: p.coopCorrectMoves !== undefined ? p.coopCorrectMoves : 0,
+    coopMistakes: p.coopMistakes !== undefined ? p.coopMistakes : 0,
   }));
 
   const state = {
@@ -187,7 +192,7 @@ function setupSocketHandlers(io, roomManager) {
         if (
           typeof row !== 'number' || typeof col !== 'number' ||
           row < 0 || row > 8 || col < 0 || col > 8 ||
-          typeof value !== 'number' || value < 1 || value > 9
+          typeof value !== 'number' || value < 0 || value > 9
         ) {
           socket.emit('move_result', { valid: false, row, col, error: 'Invalid coordinates or value' });
           return;
@@ -212,6 +217,22 @@ function setupSocketHandlers(io, roomManager) {
           return;
         }
 
+        if (value === 0) {
+          board[row][col] = 0;
+          io.to(room.id).emit('move_result', {
+            playerId: player.id,
+            playerName: player.name,
+            row,
+            col,
+            value: 0,
+            correct: null,
+            valid: true,
+            erased: true,
+          });
+          io.to(room.id).emit('room_updated', getRoomState(room));
+          return;
+        }
+
         if (board[row][col] !== 0 && isCellCorrect(board, solution, row, col)) {
           socket.emit('move_result', {
             valid: false, row, col, value,
@@ -226,12 +247,9 @@ function setupSocketHandlers(io, roomManager) {
             player.mistakes += 1;
           }
           if (room.mode === 'coop') {
-            const allPlayers = room.players;
-            for (const p of allPlayers) {
-              if (p.connected) {
-                p.mistakes += 1;
-              }
-            }
+            if (player.coopMistakes === undefined) player.coopMistakes = 0;
+            player.coopMistakes += 1;
+            player.mistakes += 1;
           }
 
           io.to(room.id).emit('move_result', {
@@ -255,22 +273,18 @@ function setupSocketHandlers(io, roomManager) {
             player.score += CORRECT_SCORE;
             player.cellsCompleted += 1;
           } else if (room.mode === 'coop') {
-            for (const p of room.players) {
-              if (p.connected) {
-                p.cellsCompleted += 1;
-              }
-            }
+            if (player.coopCorrectMoves === undefined) player.coopCorrectMoves = 0;
+            player.coopCorrectMoves += 1;
+            player.cellsCompleted += 1;
           }
         } else {
           if (room.mode === 'battle') {
             player.score += INCORRECT_SCORE;
             player.mistakes += 1;
           } else if (room.mode === 'coop') {
-            for (const p of room.players) {
-              if (p.connected) {
-                p.mistakes += 1;
-              }
-            }
+            if (player.coopMistakes === undefined) player.coopMistakes = 0;
+            player.coopMistakes += 1;
+            player.mistakes += 1;
           }
           board[row][col] = 0;
         }
@@ -323,11 +337,64 @@ function setupSocketHandlers(io, roomManager) {
               cellsCompleted: p.cellsCompleted,
               mistakes: p.mistakes,
               completedAt: p.completedAt,
+              coopCorrectMoves: p.coopCorrectMoves !== undefined ? p.coopCorrectMoves : 0,
+              coopMistakes: p.coopMistakes !== undefined ? p.coopMistakes : 0,
             })),
           });
         }
       } catch (err) {
         socket.emit('move_result', { valid: false, error: err.message || 'Move processing failed' });
+      }
+    });
+
+    socket.on('request_hint', () => {
+      try {
+        const room = roomManager.getPlayerRoom(socket.id);
+        if (!room) {
+          socket.emit('hint_result', { error: 'Room not found' });
+          return;
+        }
+        if (room.state !== 'playing') {
+          socket.emit('hint_result', { error: 'Game is not in progress' });
+          return;
+        }
+        if (!room.game) {
+          socket.emit('hint_result', { error: 'No game in progress' });
+          return;
+        }
+
+        const player = room.players.find((p) => p.id === socket.id);
+        if (!player) {
+          socket.emit('hint_result', { error: 'Player not found' });
+          return;
+        }
+
+        const board = room.mode === 'coop' ? room.game.boards.shared : room.game.boards[player.id];
+        if (!board) {
+          socket.emit('hint_result', { error: 'Board not found' });
+          return;
+        }
+
+        const { solution } = room.game;
+        const hintCell = getHintCell(board, solution);
+        if (!hintCell) {
+          socket.emit('hint_result', { error: 'No empty cells remaining' });
+          return;
+        }
+
+        if (player.credits === undefined) player.credits = 0;
+        player.credits -= 1;
+
+        socket.emit('hint_result', {
+          row: hintCell.row,
+          col: hintCell.col,
+          value: hintCell.value,
+          credits: player.credits,
+        });
+
+        io.to(room.id).emit('room_updated', getRoomState(room));
+      } catch (err) {
+        socket.emit('hint_result', { error: err.message || 'Hint request failed' });
       }
     });
 

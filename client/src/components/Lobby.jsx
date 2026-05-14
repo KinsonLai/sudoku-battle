@@ -1,10 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 
-const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert'];
+const DIFFICULTIES = ['easy', 'medium', 'hard', 'expert', 'hell_no'];
 const MODES = [
   { value: 'battle', label: 'Battle Mode' },
   { value: 'coop', label: 'Cooperative Mode' },
 ];
+
+function formatDifficulty(d) {
+  return d.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
 
 export default function Lobby({ socket, onEnterRoom, connected, onStartSingleplayer, onOpenScoreboard }) {
   const [tab, setTab] = useState('create');
@@ -126,7 +130,7 @@ export default function Lobby({ socket, onEnterRoom, connected, onStartSinglepla
                     className={`difficulty-button ${spDifficulty === d ? 'active' : ''}`}
                     onClick={() => setSpDifficulty(d)}
                   >
-                    {d.charAt(0).toUpperCase() + d.slice(1)}
+                    {formatDifficulty(d)}
                   </button>
                 ))}
               </div>
@@ -225,7 +229,7 @@ export default function Lobby({ socket, onEnterRoom, connected, onStartSinglepla
                       className={`difficulty-button ${difficulty === d ? 'active' : ''}`}
                       onClick={() => setDifficulty(d)}
                     >
-                      {d.charAt(0).toUpperCase() + d.slice(1)}
+                      {formatDifficulty(d)}
                     </button>
                   ))}
                 </div>
@@ -286,7 +290,7 @@ export default function Lobby({ socket, onEnterRoom, connected, onStartSinglepla
                     </div>
                     <div className="room-list-meta">
                       <span className="badge badge-mode">{room.mode}</span>
-                      <span className="badge badge-difficulty">{room.difficulty}</span>
+                      <span className="badge badge-difficulty">{formatDifficulty(room.difficulty || '')}</span>
                       <span className="badge badge-players">
                         {room.playerCount || room.players?.length || 1}/4
                       </span>

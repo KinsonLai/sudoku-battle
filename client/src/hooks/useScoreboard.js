@@ -39,6 +39,7 @@ export default function useScoreboard() {
       totalMoves: record.totalMoves || 0,
       completed: record.completed ?? true,
       mode: record.mode || 'singleplayer',
+      hintsUsed: record.hintsUsed || 0,
     };
     setRecords((prev) => [entry, ...prev]);
     return entry;
@@ -92,7 +93,7 @@ export default function useScoreboard() {
   const personalBests = {
     byDifficulty: {},
   };
-  ['easy', 'medium', 'hard', 'expert'].forEach((diff) => {
+  ['easy', 'medium', 'hard', 'expert', 'hell_no'].forEach((diff) => {
     const diffRecords = records.filter((r) => r.difficulty === diff && r.completed);
     if (diffRecords.length > 0) {
       personalBests.byDifficulty[diff] = {
